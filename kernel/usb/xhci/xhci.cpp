@@ -64,10 +64,20 @@ namespace {
     if (value == 0) {
       return -1;
     }
-
+#ifdef ARCH_X64
     int msb_index;
     asm("bsr %1, %0"
         : "=r"(msb_index) : "m"(value));
+#endif
+#ifdef ARCH_AARCH64
+    int msb_index = 0;
+    for (int i = 0; i < 32; i++) {
+        if (value & 0x1) {
+            msb_index = i;
+        }
+        value = value >> 1;
+    }
+#endif
     return msb_index;
   }
 

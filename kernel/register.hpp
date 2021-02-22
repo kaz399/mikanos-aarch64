@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "logger.hpp"
 
 template <typename T>
 struct ArrayLength {};
@@ -29,6 +30,7 @@ class MemMapRegister {
  public:
   T Read() const {
     T tmp;
+    //Log(kInfo, "reg:%p\n", value_.data);
     for (size_t i = 0; i < len_; ++i) {
       tmp.data[i] = value_.data[i];
     }

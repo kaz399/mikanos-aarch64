@@ -5,7 +5,7 @@
   PLATFORM_VERSION               = 0.1
   DSC_SPECIFICATION              = 0x00010005
   OUTPUT_DIRECTORY               = Build/MikanLoader$(ARCH)
-  SUPPORTED_ARCHITECTURES        = X64
+  SUPPORTED_ARCHITECTURES        = X64|AARCH64
   BUILD_TARGETS                  = DEBUG|RELEASE|NOOPT
 #@range_end(defines)
 
@@ -29,3 +29,6 @@
 [Components]
   MikanLoaderPkg/Loader.inf
 #@range_end(components)
+#
+[BuildOptions]
+  *_CLANG38_AARCH64_CC_FLAGS=--sysroot=/usr/aarch64-linux-gnu

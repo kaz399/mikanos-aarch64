@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstdio>
+#include <cstdarg>
 
 #include <numeric>
 #include <vector>
@@ -23,6 +24,9 @@
 #include "usb/classdriver/mouse.hpp"
 #include "usb/xhci/xhci.hpp"
 #include "usb/xhci/trb.hpp"
+
+#include "halt.hpp"
+
 
 const PixelColor kDesktopBGColor{45, 118, 237};
 const PixelColor kDesktopFGColor{255, 255, 255};
@@ -113,8 +117,8 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
   console = new(console_buf) Console{
     *pixel_writer, kDesktopFGColor, kDesktopBGColor
   };
-  printk("Welcome to MikanOS!\n");
-  SetLogLevel(kWarn);
+  printk("Welcome to MikanOS-AARCH64!\n");
+  SetLogLevel(kDebug);
 
   // #@@range_begin(new_mouse_cursor)
   mouse_cursor = new(mouse_cursor_buf) MouseCursor{
@@ -156,14 +160,22 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
   // #@@range_begin(read_bar)
   const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_dev, 0);
   Log(kDebug, "ReadBar: %s\n", xhc_bar.error.Name());
-  const uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast<uint64_t>(0xf);
+  uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast<uint64_t>(0xf);
   Log(kDebug, "xHC mmio_base = %08lx\n", xhc_mmio_base);
+  Log(kInfo, "vid:%x\n", pci::ReadVendorId(*xhc_dev));
   // #@@range_end(read_bar)
 
+  uint32_t command_reg = pci::ReadConfReg(*xhc_dev, 4);
+  Log(kInfo, "command:%x\n", command_reg);
+  pci::WriteConfReg(*xhc_dev, 4, command_reg | 0x02);
+
+  Log(kInfo, "create xhc\n");
   // #@@range_begin(init_xhc)
   usb::xhci::Controller xhc{xhc_mmio_base};
+  Log(kInfo, "xhc generated\n");
 
   if (0x8086 == pci::ReadVendorId(*xhc_dev)) {
+    Log(kInfo, "SwitchEhci2Xhci\n");
     SwitchEhci2Xhci(*xhc_dev);
   }
   {
@@ -201,9 +213,10 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
   }
   // #@@range_end(receive_event)
 
-  while (1) __asm__("hlt");
+  while (1) halt();
 }
 
 extern "C" void __cxa_pure_virtual() {
-  while (1) __asm__("hlt");
+  halt();
 }
+

@@ -25,3 +25,4 @@
   gEfiLoadedImageProtocolGuid
   gEfiLoadFileProtocolGuid
   gEfiSimpleFileSystemProtocolGuid
+  gEfiPciRootBridgeIoProtocolGuid
