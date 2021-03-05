@@ -1,24 +1,5 @@
 TARGET = kernel.elf
 
-KERNEL_DIR:=$(CURDIR)
-OBJCOPY_VER:=-11
-
-ifeq ($(MIKANOS_ARCH), ARCH_X64)
-    ARCH_DIR=arch/x64
-    MIKANOS_KERNEL_BASE:=0x100000
-    CLANG_SYSROOT:=
-    ARCH_LIBS:=
-    ARCH_OBJS:=$(ARCH_DIR)/pci.o $(ARCH_DIR)/asmfunc.o $(ARCH_DIR)/newlib_support.o $(ARCH_DIR)/halt.o $(ARCH_DIR)/libcxx_support.o
-endif
-
-ifeq ($(MIKANOS_ARCH), ARCH_AARCH64)
-    ARCH_DIR=arch/aarch64
-    MIKANOS_KERNEL_BASE:=0x40000000
-    CLANG_SYSROOT:=--sysroot=$(SYSROOT)
-    ARCH_LIBS:=-L$(SYSROOT)/lib/gcc/aarch64-none-linux-gnu/10.2.1/ -lgcc
-    ARCH_OBJS:=$(ARCH_DIR)/iofunc.o $(ARCH_DIR)/pci.o $(ARCH_DIR)/halt.o $(ARCH_DIR)/libcxx_support.o
-endif
-
 OBJS = main.o graphics.o mouse.o font.o hankaku.o console.o logger.o \
        usb/memory.o usb/device.o usb/xhci/ring.o usb/xhci/trb.o usb/xhci/xhci.o \
        usb/xhci/port.o usb/xhci/device.o usb/xhci/devmgr.o usb/xhci/registers.o \
@@ -35,6 +16,45 @@ CXXFLAGS += -O2 $(CLANG_SYSROOT) -Wall -g --target=$(CLANG_TARGET) -ffreestandin
 	    -I$(KERNEL_DIR) -I$(KERNEL_DIR)/$(ARCH_DIR) -D$(MIKANOS_ARCH)=1
 LDFLAGS  += --entry KernelMain -z norelro  --image-base $(MIKANOS_KERNEL_BASE) $(ARCH_LIBS) --static
 
+KERNEL_DIR:=$(CURDIR)
+OBJCOPY_VER:=-11
+
+ifeq ($(MIKANOS_ARCH), ARCH_X86_64)
+
+    MIKANOS_KERNEL_BASE := 0x100000
+
+    AS                  := nasm
+    ASFLAGS             := -f elf64
+    CCLD                := ld.lld
+    CCLD_FLAGS          := $(LDFLAGS)
+
+    ARCH_DIR            := arch/x86_64
+    ARCH_LIBS           :=
+    ARCH_OBJS           := $(ARCH_DIR)/pci.o $(ARCH_DIR)/asmfunc.o $(ARCH_DIR)/newlib_support.o $(ARCH_DIR)/halt.o $(ARCH_DIR)/libcxx_support.o
+    LIBS                := -lc -lc++
+    CLANG_SYSROOT       :=
+    OBJCOPY_TARGET      := elf64-x86-64
+    EDK2_ARCH           := X64
+endif
+
+ifeq ($(MIKANOS_ARCH), ARCH_AARCH64)
+
+    MIKANOS_KERNEL_BASE := 0x40000000
+
+    AS                  := clang
+    ASFLAGS             := --target=$(CLANG_TARGET)
+    CCLD                := clang
+    CCLD_FLAGS          := -nostdlib -fuse-ld=lld -target aarch64-linux-gnu $(addprefix -Xlinker ,$(LDFLAGS)) $(CLANG_SYSROOT)
+
+    ARCH_DIR            := arch/aarch64
+    ARCH_LIBS           := -L$(SYSROOT)/lib/gcc/aarch64-none-linux-gnu/10.2.1/ -lgcc
+    ARCH_OBJS           := $(ARCH_DIR)/iofunc.o $(ARCH_DIR)/pci.o $(ARCH_DIR)/halt.o $(ARCH_DIR)/libcxx_support.o
+    LIBS                := -lc -lc++ -lc++abi -lm -lunwind
+    CLANG_SYSROOT       := --sysroot=$(SYSROOT)
+    OBJCOPY_TARGET      := elf64-aarch64
+    EDK2_ARCH           := AARCH64
+endif
+
 .PHONY: all
 all: $(TARGET)
 
@@ -44,7 +64,8 @@ clean:
 	rm -f $(DEPENDS)
 
 kernel.elf: $(OBJS) Makefile
-	clang -nostdlib -fuse-ld=lld $(CXXFLAGS) $(addprefix -Xlinker ,$(LDFLAGS)) -o kernel.elf $(OBJS) -lc -lc++ -lc++abi -lunwind
+	#clang -nostdlib -fuse-ld=lld $(CXXFLAGS) $(addprefix -Xlinker ,$(LDFLAGS)) -o kernel.elf $(OBJS) $(LIBS)
+	$(CCLD) $(CCLD_FLAGS) -o kernel.elf $(OBJS) $(LIBS)
 
 %.o: %.cpp Makefile
 	clang++ $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
@@ -62,17 +83,21 @@ kernel.elf: $(OBJS) Makefile
 	$(eval OBJ = $(<:.c=.o))
 	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
 
+
 %.o: %.asm Makefile
-	clang --target=$(CLANG_TARGET) -o $@ $<
+	$(AS) $(ASFLAGS) -o $@ $<
 
 hankaku.bin: hankaku.txt
 	../tools/makefont.py -o $@ $<
 
 hankaku.o: hankaku.bin
-	llvm-objcopy$(OBJCOPY_VER) -I binary -O elf64-aarch64 $< $@
+	llvm-objcopy$(OBJCOPY_VER) -I binary -O $(OBJCOPY_TARGET) $< $@
 
 .%.d: %.bin
 	touch $@
+
+loader:
+	(cd ../../../edk2 && build -a $(EDK2_ARCH) -t CLANG38 -p MikanLoaderPkg/MikanLoaderPkg.dsc)
 
 .PHONY: depends $(DEPENDS)
 depends:
