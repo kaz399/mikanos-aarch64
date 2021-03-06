@@ -395,9 +395,13 @@ namespace usb::xhci {
 
     // Enable interrupt for the primary interrupter
     auto iman = primary_interrupter->IMAN.Read();
+    Log(kInfo, "IMAN(read):%x\n", iman);
     iman.bits.interrupt_pending = true;
     iman.bits.interrupt_enable = true;
     primary_interrupter->IMAN.Write(iman);
+    Log(kInfo, "IMAN(write):%x\n", iman);
+    auto iman2 = primary_interrupter->IMAN.Read();
+    Log(kInfo, "IMAN(read again) ip:%d ie:%d\n", iman2.bits.interrupt_pending, iman2.bits.interrupt_enable);
 
     // Enable interrupt for the controller
     usbcmd = op_->USBCMD.Read();
@@ -496,6 +500,11 @@ namespace usb::xhci {
   }
 
   Error ProcessEvent(Controller& xhc) {
+    auto front = xhc.PrimaryEventRing()->Front();
+    Log(kInfo, "front 1:%x\n", front->data[0]);
+    Log(kInfo, "front 2:%x\n", front->data[1]);
+    Log(kInfo, "front 3:%x\n", front->data[2]);
+    Log(kInfo, "front 4:%x\n", front->data[3]);
     if (!xhc.PrimaryEventRing()->HasFront()) {
       return MAKE_ERROR(Error::kSuccess);
     }
