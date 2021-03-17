@@ -166,8 +166,10 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
   // #@@range_end(read_bar)
 
   uint32_t command_reg = pci::ReadConfReg(*xhc_dev, 4);
-  Log(kInfo, "command:%x\n", command_reg);
-  pci::WriteConfReg(*xhc_dev, 4, command_reg | 0x02);
+  Log(kInfo, "command (read):%x\n", command_reg);
+  pci::WriteConfReg(*xhc_dev, 4, command_reg | PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
+  command_reg = pci::ReadConfReg(*xhc_dev, 4);
+  Log(kInfo, "command (write):%x\n", command_reg);
 
   Log(kInfo, "create xhc\n");
   // #@@range_begin(init_xhc)

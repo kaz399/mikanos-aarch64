@@ -13,6 +13,10 @@
 
 typedef uint64_t pci_adrs_t;
 
+#define  PCI_COMMAND_IO         0x1
+#define  PCI_COMMAND_MEMORY     0x2
+#define  PCI_COMMAND_MASTER     0x4
+
 namespace pci {
   /** @brief CONFIG_ADDRESS レジスタの IO ポートアドレス */
   const uint16_t kConfigAddress = 0x0cf8;

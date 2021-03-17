@@ -25,7 +25,7 @@ namespace {
         | shl((device & 0x1fu), 11)
         | shl((function & 0x07u), 8)
         | (reg_addr & 0xfcu);
-    printk("PCI IO ADRS:%0p\n", adrs);
+    // printk("PCI IO ADRS:%0p\n", adrs);
     return adrs;
   }
 
@@ -41,7 +41,7 @@ namespace {
         | shl((device & 0x1fu), 15)
         | shl((function & 0x07u), 12)
         | (reg_addr & 0xfffu);
-    printk("PCI ECAM ADRS:%0p\n", adrs);
+    // printk("PCI ECAM ADRS:%0p\n", adrs);
     return adrs;
   }
 

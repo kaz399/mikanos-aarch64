@@ -64,12 +64,12 @@ namespace {
     if (value == 0) {
       return -1;
     }
-#ifdef ARCH_X86_64
+#if 0
     int msb_index;
     asm("bsr %1, %0"
         : "=r"(msb_index) : "m"(value));
 #endif
-#ifdef ARCH_AARCH64
+#if 1
     int msb_index = 0;
     for (int i = 0; i < 32; i++) {
         if (value & 0x1) {
@@ -501,13 +501,16 @@ namespace usb::xhci {
 
   Error ProcessEvent(Controller& xhc) {
     auto front = xhc.PrimaryEventRing()->Front();
+    if (!xhc.PrimaryEventRing()->HasFront()) {
+      return MAKE_ERROR(Error::kSuccess);
+    }
+
+#if 0
     Log(kInfo, "front 1:%x\n", front->data[0]);
     Log(kInfo, "front 2:%x\n", front->data[1]);
     Log(kInfo, "front 3:%x\n", front->data[2]);
     Log(kInfo, "front 4:%x\n", front->data[3]);
-    if (!xhc.PrimaryEventRing()->HasFront()) {
-      return MAKE_ERROR(Error::kSuccess);
-    }
+#endif
 
     Error err = MAKE_ERROR(Error::kNotImplemented);
     auto event_trb = xhc.PrimaryEventRing()->Front();
