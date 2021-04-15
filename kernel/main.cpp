@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstdio>
+#include <cstdarg>
 
 #include <numeric>
 #include <vector>
@@ -25,6 +26,9 @@
 #include "usb/xhci/trb.hpp"
 #include "interrupt.hpp"
 #include "asmfunc.h"
+
+#include "halt.hpp"
+
 
 const PixelColor kDesktopBGColor{45, 118, 237};
 const PixelColor kDesktopFGColor{255, 255, 255};
@@ -126,8 +130,8 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
   console = new(console_buf) Console{
     *pixel_writer, kDesktopFGColor, kDesktopBGColor
   };
-  printk("Welcome to MikanOS!\n");
-  SetLogLevel(kWarn);
+  printk("Welcome to MikanOS-AARCH64!\n");
+  SetLogLevel(kDebug);
 
   mouse_cursor = new(mouse_cursor_buf) MouseCursor{
     pixel_writer, kDesktopBGColor, {300, 200}
@@ -180,12 +184,24 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
 
   const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_dev, 0);
   Log(kDebug, "ReadBar: %s\n", xhc_bar.error.Name());
-  const uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast<uint64_t>(0xf);
+  uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast<uint64_t>(0xf);
   Log(kDebug, "xHC mmio_base = %08lx\n", xhc_mmio_base);
+  Log(kInfo, "vid:%x\n", pci::ReadVendorId(*xhc_dev));
+  // #@@range_end(read_bar)
 
+  uint32_t command_reg = pci::ReadConfReg(*xhc_dev, 4);
+  Log(kInfo, "command (read):%x\n", command_reg);
+  pci::WriteConfReg(*xhc_dev, 4, command_reg | PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
+  command_reg = pci::ReadConfReg(*xhc_dev, 4);
+  Log(kInfo, "command (write):%x\n", command_reg);
+
+  Log(kInfo, "create xhc\n");
+  // #@@range_begin(init_xhc)
   usb::xhci::Controller xhc{xhc_mmio_base};
+  Log(kInfo, "xhc generated\n");
 
   if (0x8086 == pci::ReadVendorId(*xhc_dev)) {
+    Log(kInfo, "SwitchEhci2Xhci\n");
     SwitchEhci2Xhci(*xhc_dev);
   }
   {
@@ -197,7 +213,7 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
   xhc.Run();
 
   ::xhc = &xhc;
-  __asm__("sti");
+  EnableIrq();
 
   usb::HIDMouseDriver::default_observer = MouseObserver;
 
@@ -214,9 +230,10 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
     }
   }
 
-  while (1) __asm__("hlt");
+  while (1) halt();
 }
 
 extern "C" void __cxa_pure_virtual() {
-  while (1) __asm__("hlt");
+  halt();
 }
+

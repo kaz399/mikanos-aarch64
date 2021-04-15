@@ -88,3 +88,6 @@ struct InterruptFrame {
 // #@@range_end(frame_struct)
 
 void NotifyEndOfInterrupt();
+
+volatile void DisableIrq(void);
+volatile void EnableIrq(void);

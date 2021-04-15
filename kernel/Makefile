@@ -1,58 +1,77 @@
 TARGET = kernel.elf
-OBJS = main.o graphics.o mouse.o font.o hankaku.o newlib_support.o console.o \
-       pci.o asmfunc.o libcxx_support.o logger.o interrupt.o \
+KERNEL_DIR:=$(CURDIR)
+
+OBJS = main.o graphics.o mouse.o font.o hankaku.o console.o logger.o \
        usb/memory.o usb/device.o usb/xhci/ring.o usb/xhci/trb.o usb/xhci/xhci.o \
        usb/xhci/port.o usb/xhci/device.o usb/xhci/devmgr.o usb/xhci/registers.o \
        usb/classdriver/base.o usb/classdriver/hid.o usb/classdriver/keyboard.o \
        usb/classdriver/mouse.o
+LIBS = -lc -lc++
+CPPFLAGS += -nostdlibinc -D__ELF__ -D_LDBL_EQ_DBL -D_GNU_SOURCE -D_POSIX_TIMERS
+CFLAGS   += -O2 -Wall -g -ffreestanding -mno-red-zone
+CXXFLAGS += -O2 -Wall -g -ffreestanding -mno-red-zone \
+            -fno-exceptions -fno-cxx-exceptions -fno-rtti -std=c++17
+LDFLAGS  += --entry KernelMain -z norelro --static
+
+# include target specific definitions
+include makedef-$(TARGET_ARCH).mk
+
+CPPFLAGS     += $(ARCH_CPPFLAGS)
+CFLAGS       += $(ARCH_CFLAGS)
+CXXFLAGS     += $(ARCH_CXXFLAGS)
+LDFLAGS      += $(ARCH_LDFLAGS)
+ASFLAGS      += $(ARCH_ASFLAGS)
+OBJCOPYFLAGS += $(ARCH_OBJCOPYFLAGS)
+
+OBJS := $(OBJS) $(foreach obj,$(ARCH_OBJS),$(join arch/$(MIKANOS_ARCH_TARGET)/,$(obj)))
 DEPENDS = $(join $(dir $(OBJS)),$(addprefix .,$(notdir $(OBJS:.o=.d))))
 
-CPPFLAGS += -I.
-CFLAGS   += -O2 -Wall -g --target=x86_64-elf -ffreestanding -mno-red-zone
-CXXFLAGS += -O2 -Wall -g --target=x86_64-elf -ffreestanding -mno-red-zone \
-            -fno-exceptions -fno-rtti -std=c++17
-LDFLAGS  += --entry KernelMain -z norelro --image-base 0x100000 --static
-
+LIBS := $(LIBS) $(ARCH_LIBS)
 
 .PHONY: all
 all: $(TARGET)
 
 .PHONY: clean
 clean:
-	rm -rf *.o
+	find $(KERNEL_DIR) -name '*.o' -type f -delete
+	rm -f $(DEPENDS)
 
 kernel.elf: $(OBJS) Makefile
-	ld.lld $(LDFLAGS) -o kernel.elf $(OBJS) -lc -lc++
+	$(LD) $(LDFLAGS) -o kernel.elf $(OBJS) $(LIBS)
 
 %.o: %.cpp Makefile
-	clang++ $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 .%.d: %.cpp
-	clang++ $(CPPFLAGS) $(CXXFLAGS) -MM $< > $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MM $< > $@
 	$(eval OBJ = $(<:.cpp=.o))
 	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
 
 %.o: %.c Makefile
-	clang $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 .%.d: %.c
-	clang $(CPPFLAGS) $(CFLAGS) -MM $< > $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MM $< > $@
 	$(eval OBJ = $(<:.c=.o))
 	sed --in-place 's|$(notdir $(OBJ))|$(OBJ)|' $@
 
+
 %.o: %.asm Makefile
-	nasm -f elf64 -o $@ $<
+	$(AS) $(ASFLAGS) -o $@ $<
 
 hankaku.bin: hankaku.txt
 	../tools/makefont.py -o $@ $<
 
 hankaku.o: hankaku.bin
-	objcopy -I binary -O elf64-x86-64 -B i386:x86-64 $< $@
+	$(OBJCOPY) -I binary $(OBJCOPYFLAGS) $< $@
 
 .%.d: %.bin
 	touch $@
 
-.PHONY: depends
+loader:
+	(cd ../../edk2 && build -a $(EDK2_ARCH_TARGET) -t CLANG38 -p MikanLoaderPkg/MikanLoaderPkg.dsc)
+
+.PHONY: depends $(DEPENDS)
 depends:
 	$(MAKE) $(DEPENDS)
 

@@ -64,10 +64,20 @@ namespace {
     if (value == 0) {
       return -1;
     }
-
+#if 0
     int msb_index;
     __asm__("bsr %1, %0"
         : "=r"(msb_index) : "m"(value));
+#endif
+#if 1
+    int msb_index = 0;
+    for (int i = 0; i < 32; i++) {
+        if (value & 0x1) {
+            msb_index = i;
+        }
+        value = value >> 1;
+    }
+#endif
     return msb_index;
   }
 
@@ -385,9 +395,13 @@ namespace usb::xhci {
 
     // Enable interrupt for the primary interrupter
     auto iman = primary_interrupter->IMAN.Read();
+    Log(kInfo, "IMAN(read):%x\n", iman);
     iman.bits.interrupt_pending = true;
     iman.bits.interrupt_enable = true;
     primary_interrupter->IMAN.Write(iman);
+    Log(kInfo, "IMAN(write):%x\n", iman);
+    auto iman2 = primary_interrupter->IMAN.Read();
+    Log(kInfo, "IMAN(read again) ip:%d ie:%d\n", iman2.bits.interrupt_pending, iman2.bits.interrupt_enable);
 
     // Enable interrupt for the controller
     usbcmd = op_->USBCMD.Read();
@@ -486,9 +500,17 @@ namespace usb::xhci {
   }
 
   Error ProcessEvent(Controller& xhc) {
+    auto front = xhc.PrimaryEventRing()->Front();
     if (!xhc.PrimaryEventRing()->HasFront()) {
       return MAKE_ERROR(Error::kSuccess);
     }
+
+#if 0
+    Log(kInfo, "front 1:%x\n", front->data[0]);
+    Log(kInfo, "front 2:%x\n", front->data[1]);
+    Log(kInfo, "front 3:%x\n", front->data[2]);
+    Log(kInfo, "front 4:%x\n", front->data[3]);
+#endif
 
     Error err = MAKE_ERROR(Error::kNotImplemented);
     auto event_trb = xhc.PrimaryEventRing()->Front();

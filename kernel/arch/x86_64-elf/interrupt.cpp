@@ -29,3 +29,13 @@ void NotifyEndOfInterrupt() {
   *end_of_interrupt = 0;
 }
 // #@@range_end(notify_eoi)
+
+volatile void DisableIrq(void)
+{
+  __asm__("cli");
+}
+
+volatile void EnableIrq(void)
+{
+  __asm__("sti");
+}
