@@ -27,7 +27,7 @@ ARCH_LDFLAGS        := --image-base $(MIKANOS_KERNEL_BASE) $(ARCH_LIB_PATH)
 ARCH_ASFLAGS        := -f elf64
 ARCH_OBJCOPYFLAGS   := -O elf64-x86-64
 
-ARCH_OBJS           := pci.o asmfunc.o newlib_support.o halt.o libcxx_support.o interrupt.o
+ARCH_OBJS           := pci.o asmfunc.o newlib_support.o halt.o libcxx_support.o interrupt.o xhci_interrupt.o
 ARCH_LIBS           :=
 
 EDK2_ARCH_TARGET    := X64

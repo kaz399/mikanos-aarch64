@@ -174,4 +174,5 @@ namespace pci {
       const Device& dev, uint8_t apic_id,
       MSITriggerMode trigger_mode, MSIDeliveryMode delivery_mode,
       uint8_t vector, unsigned int num_vector_exponent);
+
 }
