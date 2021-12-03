@@ -4,6 +4,7 @@
 #include "pci.hpp"
 
 extern usb::xhci::Controller* xhc;
+extern InterruptController* intctrl;
 
 __attribute__((interrupt))
 void IntHandlerXHCI(InterruptFrame* frame) {
@@ -13,16 +14,13 @@ void IntHandlerXHCI(InterruptFrame* frame) {
           err.Name(), err.File(), err.Line());
     }
   }
-  NotifyEndOfInterrupt();
+  intctrl->clear_interrupt();
 }
 
-
 int XHCIRegisterHandler(uint64_t IntHandlerXHCI) {
-  const uint16_t cs = GetCS();
-  SetIDTEntry(idt[InterruptVector::kXHCI], MakeIDTAttr(DescriptorType::kInterruptGate, 0),
-              reinterpret_cast<uint64_t>(IntHandlerXHCI), cs);
-  LoadIDT(sizeof(idt) - 1, reinterpret_cast<uintptr_t>(&idt[0]));
-
+  intctrl->register_handler(idt[InterruptVector::kXHCI],
+      MakeIDTAttr(DescriptorType::kInterruptGate, 0),
+      reinterpret_cast<uint64_t>(IntHandlerXHCI));
   return 0;
 }
 

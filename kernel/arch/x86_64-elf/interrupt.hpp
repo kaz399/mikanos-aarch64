@@ -91,3 +91,21 @@ void NotifyEndOfInterrupt();
 
 volatile void DisableIrq(void);
 volatile void EnableIrq(void);
+
+class ACPI {
+  public:
+    void setup(void);
+    void shutdown(void);
+    void register_handler(InterruptDescriptor& desc,
+        InterruptDescriptorAttribute attr,
+        uint64_t offset);
+    void unregister_handler(void);
+    void clear_interrupt(void);
+
+    // for debug
+    void dump_registers(void) {}
+};
+
+typedef ACPI InterruptController;
+
+

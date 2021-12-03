@@ -40,6 +40,9 @@ PixelWriter* pixel_writer;
 char console_buf[sizeof(Console)];
 Console* console;
 
+char intctrl_buf[sizeof(InterruptController)];
+InterruptController* intctrl;
+
 int printk(const char* format, ...) {
   va_list ap;
   int result;
@@ -157,6 +160,9 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
         xhc_dev->bus, xhc_dev->device, xhc_dev->function);
   }
 
+  intctrl = new(intctrl_buf) InterruptController;
+  intctrl->setup();
+
   XHCIRegisterHandler(reinterpret_cast<uint64_t>(IntHandlerXHCI));
   XHCIEnableMsi(xhc_dev);
 
@@ -207,6 +213,8 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
       }
     }
   }
+
+  intctrl->dump_registers();
 
   while (1) halt();
 }

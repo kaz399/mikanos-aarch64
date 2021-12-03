@@ -26,7 +26,7 @@ ARCH_LDFLAGS        := --image-base $(MIKANOS_KERNEL_BASE) $(ARCH_LIB_PATH)
 ARCH_ASFLAGS        := --target=$(MIKANOS_ARCH_TARGET)
 ARCH_OBJCOPYFLAGS   := -O elf64-aarch64
 
-ARCH_OBJS           := iofunc.o pci.o halt.o libcxx_support.o
+ARCH_OBJS           := xhci_interrupt.o gicv2.o interrupt.o iofunc.o pci.o halt.o libcxx_support.o
 ARCH_LIBS           := -lc++abi -lm -lunwind -lgcc
 
 EDK2_ARCH_TARGET    := AARCH64

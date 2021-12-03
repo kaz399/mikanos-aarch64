@@ -5,6 +5,7 @@
  */
 
 #include "interrupt.hpp"
+#include "asmfunc.h"
 
 // #@@range_begin(idt_array)
 std::array<InterruptDescriptor, 256> idt;
@@ -30,6 +31,10 @@ void NotifyEndOfInterrupt() {
 }
 // #@@range_end(notify_eoi)
 
+void clear_interrupt(void) {
+  NotifyEndOfInterrupt();
+}
+
 volatile void DisableIrq(void)
 {
   __asm__("cli");
@@ -38,4 +43,26 @@ volatile void DisableIrq(void)
 volatile void EnableIrq(void)
 {
   __asm__("sti");
+}
+
+void ACPI::setup(void) {
+}
+
+void ACPI::shutdown(void) {
+}
+
+void ACPI::register_handler(InterruptDescriptor& desc,
+    InterruptDescriptorAttribute attr,
+    uint64_t offset) {
+  const uint16_t cs = GetCS();
+  SetIDTEntry(desc, attr, offset, cs);
+  LoadIDT(sizeof(idt) - 1, reinterpret_cast<uintptr_t>(&idt[0]));
+
+}
+
+void ACPI::unregister_handler(void) {
+}
+
+void ACPI::clear_interrupt(void) {
+  NotifyEndOfInterrupt();
 }
