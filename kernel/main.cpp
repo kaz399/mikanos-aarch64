@@ -214,7 +214,7 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
     }
   }
 
-  intctrl->dump_registers();
+  intctrl->get_information();
 
   while (1) halt();
 }

@@ -9,11 +9,12 @@
 
 #include <cstdint>
 #include <string>
-#include <map>
+#include "error.hpp"
 
 namespace interrupt::gicv2 {
   typedef struct {
-    uint64_t param1;
+    uint8_t priority;
+    uint8_t target_cpu;
   } InterruptControllerParam;
 
   typedef struct {
@@ -60,24 +61,53 @@ namespace interrupt::gicv2 {
       {"IIDR", 0x00fc},
       {"DIR", 0x1000},
     };
+
+    const RegisterInfo GICv2M[] = {
+      {"MSI_TYPER", 0x008},
+      {"MSI_SETSPI_S", 0x040},
+      {"MSI_IIDR", 0xfcc},
+    };
   }
 
   class GICv2 {
     private:
       const uint64_t DistributorBaseAddress;
       const uint64_t CpuInterfaceBaseAddress;
+      const uint64_t GICv2mBaseAddress;
+      uint32_t int_num;
+      uint32_t msi_base;
+      uint32_t msi_num;
+
     public:
       GICv2(void);
+
+      // common interfaces
+
       void setup(void);
       void shutdown(void);
       void register_handler(uint64_t i_num,
           uint64_t handler,
           interrupt::gicv2::InterruptControllerParam *param);
       void unregister_handler(uint64_t i_num);
+      Error enable_interrput(uint64_t i_num);
+      Error disable_interrput(uint64_t i_num);
       void clear_interrupt(uint64_t i_num);
 
-      void dump_registers(void);
+      // architecture specific interfaces
+
+      Error get_destribution_register_address(const char *reg_name, uint64_t *reg_address);
+      Error get_cpu_interface_register_address(const char *reg_name, uint64_t *reg_address);
+      Error get_gicv2m_register_address(const char *reg_name, uint64_t *reg_address);
+
+      Error get_destribution_register(const char *reg_name, uint32_t *reg_value);
+      Error get_cpu_interface_register(const char *reg_name, uint32_t *reg_value);
+      Error get_gicv2m_register(const char *reg_name, uint32_t *reg_value);
+
+      // for development
+
+      void get_information(void);
   };
+
 
 }
 
