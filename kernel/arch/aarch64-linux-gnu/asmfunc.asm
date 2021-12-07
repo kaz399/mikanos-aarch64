@@ -4,6 +4,8 @@
 .balign 0x1000
 
 VectorTable:
+l:
+	b l
 
 .balign 0x80
 
@@ -31,3 +33,4 @@ asm_irq_handler:
 	ldp   x0,  x1,  [sp], #16
 	eret
 
+.balign 0x1000

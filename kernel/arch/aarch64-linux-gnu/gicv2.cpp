@@ -51,13 +51,24 @@ namespace interrupt::gicv2 {
       Log(kDebug, "MSI_TYPER = %08x, base:%d num:%d\n", msi_typer, this->msi_base, this->msi_num);
     }
 
-    // disable all interrupts
+    // GICD registers
     for (uint64_t i = 0; i <= this->int_num; i++) {
-      enable_interrput(i);
-      set_priority(i, static_cast<uint8_t>(i & 0xff));
-      set_interrupt_type(i, 0b11);
+      disable_interrput(i);
+      set_priority(i, 0x80);
+      if (i >= 64) {
+        // edge
+        set_interrupt_type(i, 0b10);
+      } else {
+        // level
+        set_interrupt_type(i, 0b00);
+      }
       set_target_cpu(i, 1);
+      enable_interrput(i);
     }
+
+    // GICC registers
+    set_cpu_interface_register("PMR", 0xff);
+    set_cpu_interface_register("BPR", 0x0);
 
     enable_gicv2();
     Log(kDebug, "GICv2 setup completed\n");
@@ -201,6 +212,15 @@ namespace interrupt::gicv2 {
     return MAKE_ERROR(Error::Code::kInvalidParameter);
   }
 
+  Error GICv2::set_destribution_register(const char *reg_name, uint32_t reg_value) {
+    uint64_t address;
+    Error result = get_destribution_register_address(reg_name, &address);
+    if (result.Cause() == Error::Code::kSuccess) {
+      io_write32(address, reg_value);
+    }
+    return result;
+  }
+
   Error GICv2::get_destribution_register(const char *reg_name, uint32_t *reg_value) {
     if (reg_value == NULL) {
       Log(kError, "%s:reg_address is NULL\n", __func__);
@@ -215,6 +235,15 @@ namespace interrupt::gicv2 {
     return result;
   }
 
+  Error GICv2::set_cpu_interface_register(const char *reg_name, uint32_t reg_value) {
+    uint64_t address;
+    Error result = get_cpu_interface_register_address(reg_name, &address);
+    if (result.Cause() == Error::Code::kSuccess) {
+      io_write32(address, reg_value);
+    }
+    return result;
+  }
+
   Error GICv2::get_cpu_interface_register(const char *reg_name, uint32_t *reg_value) {
     if (reg_value == NULL) {
       Log(kError, "%s:reg_address is NULL\n", __func__);
@@ -225,6 +254,15 @@ namespace interrupt::gicv2 {
     Error result = get_cpu_interface_register_address(reg_name, &address);
     if (result.Cause() == Error::Code::kSuccess) {
       *reg_value = io_read32(address);
+    }
+    return result;
+  }
+
+  Error GICv2::set_gicv2m_register(const char *reg_name, uint32_t reg_value) {
+    uint64_t address;
+    Error result = get_gicv2m_register_address(reg_name, &address);
+    if (result.Cause() == Error::Code::kSuccess) {
+      io_write32(address, reg_value);
     }
     return result;
   }
@@ -310,11 +348,8 @@ namespace interrupt::gicv2 {
   }
 
   void GICv2::enable_gicv2(void) {
-    uint64_t address;
-    Error result = get_destribution_register_address("CTLR", &address);
-    if (result.Cause() == Error::Code::kSuccess) {
-      io_write32(address, 0xffffffff);
-    }
+    set_destribution_register("CTLR", 3);
+    set_cpu_interface_register("CTLR", 0x1e7);
   }
 
   void GICv2::disable_gicv2(void) {
@@ -335,10 +370,28 @@ namespace interrupt::gicv2 {
     if (result.Cause() == Error::Code::kSuccess) {
       uint64_t ofst = i_num / 16;
       uint64_t shift = (i_num % 16) * 2;
-      uint32_t value = io_read32(address + ofst);
+      uint32_t value = io_read32(address + (ofst * 4));
       value &= ~(0b11 << shift);
       value |= (i_type & 0b11) << shift;
-      io_write32(address + ofst, value);
+      io_write32(address + (ofst * 4), value);
+    }
+    return result;
+  }
+
+  Error GICv2::set_interrupt_group(uint64_t i_num, uint8_t i_group) {
+    if (i_num > this->int_num) {
+      Log(kError, "interrupt number %s is not available\n", i_num);
+      return MAKE_ERROR(Error::Code::kInvalidParameter);
+    }
+    uint64_t address;
+    Error result = get_destribution_register_address("IGROUP", &address);
+    if (result.Cause() == Error::Code::kSuccess) {
+      uint64_t ofst = i_num / 32;
+      uint64_t shift = i_num % 32;
+      uint32_t value = io_read32(address + (ofst * 4));
+      value &= ~(0b1 << shift);
+      value |= (i_group & 0b1) << shift;
+      io_write32(address + (ofst * 4), value);
     }
     return result;
   }

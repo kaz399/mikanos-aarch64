@@ -164,7 +164,7 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
   intctrl->setup();
 
   Log(kDebug, "EL1: set vector table\n");
-  LoadVector(1, VectorTable);
+  LoadVector(1, reinterpret_cast<uint64_t>(&VectorTable));
 
 
   XHCIRegisterHandler(reinterpret_cast<uint64_t>(IntHandlerXHCI));

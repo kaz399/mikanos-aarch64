@@ -101,8 +101,11 @@ namespace interrupt::gicv2 {
       Error get_cpu_interface_register_address(const char *reg_name, uint64_t *reg_address);
       Error get_gicv2m_register_address(const char *reg_name, uint64_t *reg_address);
 
+      Error set_destribution_register(const char *reg_name, uint32_t reg_value);
       Error get_destribution_register(const char *reg_name, uint32_t *reg_value);
+      Error set_cpu_interface_register(const char *reg_name, uint32_t reg_value);
       Error get_cpu_interface_register(const char *reg_name, uint32_t *reg_value);
+      Error set_gicv2m_register(const char *reg_name, uint32_t reg_value);
       Error get_gicv2m_register(const char *reg_name, uint32_t *reg_value);
 
       Error set_priority(uint64_t i_num, uint8_t priority);
@@ -112,6 +115,8 @@ namespace interrupt::gicv2 {
       Error get_target_cpu(uint64_t i_num, uint8_t *cpu);
 
       Error set_interrupt_type(uint64_t i_num, uint8_t i_type);
+
+      Error set_interrupt_group(uint64_t i_num, uint8_t i_group);
 
       void enable_gicv2(void);
       void disable_gicv2(void);

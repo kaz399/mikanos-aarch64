@@ -3,5 +3,5 @@
 #include <stdint.h>
 
 extern "C" {
-  extern volatile uint64_t VectorTable;
+  extern uint64_t VectorTable;
 }
