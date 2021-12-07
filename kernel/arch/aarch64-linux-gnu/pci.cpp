@@ -45,7 +45,6 @@ namespace {
     return adrs;
   }
 
-  // #@@range_begin(add_device)
   /** @brief devices[num_device] に情報を書き込み num_device をインクリメントする． */
   Error AddDevice(const Device& device) {
     if (num_device == devices.size()) {
@@ -56,11 +55,9 @@ namespace {
     ++num_device;
     return MAKE_ERROR(Error::kSuccess);
   }
-  // #@@range_end(add_device)
 
   Error ScanBus(uint8_t bus);
 
-  // #@@range_begin(scan_function)
   /** @brief 指定のファンクションを devices に追加する．
    * もし PCI-PCI ブリッジなら，セカンダリバスに対し ScanBus を実行する
    */
@@ -81,9 +78,7 @@ namespace {
 
     return MAKE_ERROR(Error::kSuccess);
   }
-  // #@@range_end(scan_function)
 
-  // #@@range_begin(scan_device)
   /** @brief 指定のデバイス番号の各ファンクションをスキャンする．
    * 有効なファンクションを見つけたら ScanFunction を実行する．
    */
@@ -105,9 +100,7 @@ namespace {
     }
     return MAKE_ERROR(Error::kSuccess);
   }
-  // #@@range_end(scan_device)
 
-  // #@@range_begin(scan_bus)
   /** @brief 指定のバス番号の各デバイスをスキャンする．
    * 有効なデバイスを見つけたら ScanDevice を実行する．
    */
@@ -122,7 +115,86 @@ namespace {
     }
     return MAKE_ERROR(Error::kSuccess);
   }
-  // #@@range_end(scan_bus)
+
+  /** @brief 指定された MSI ケーパビリティ構造を読み取る
+   *
+   * @param dev  MSI ケーパビリティを読み込む PCI デバイス
+   * @param cap_addr  MSI ケーパビリティレジスタのコンフィグレーション空間アドレス
+   */
+  MSICapability ReadMSICapability(const Device& dev, uint8_t cap_addr) {
+    MSICapability msi_cap{};
+
+    msi_cap.header.data = ReadConfReg(dev, cap_addr);
+    msi_cap.msg_addr = ReadConfReg(dev, cap_addr + 4);
+
+    uint8_t msg_data_addr = cap_addr + 8;
+    if (msi_cap.header.bits.addr_64_capable) {
+      msi_cap.msg_upper_addr = ReadConfReg(dev, cap_addr + 8);
+      msg_data_addr = cap_addr + 12;
+    }
+
+    msi_cap.msg_data = ReadConfReg(dev, msg_data_addr);
+
+    if (msi_cap.header.bits.per_vector_mask_capable) {
+      msi_cap.mask_bits = ReadConfReg(dev, msg_data_addr + 4);
+      msi_cap.pending_bits = ReadConfReg(dev, msg_data_addr + 8);
+    }
+
+    return msi_cap;
+  }
+
+  /** @brief 指定された MSI ケーパビリティ構造に書き込む
+   *
+   * @param dev  MSI ケーパビリティを読み込む PCI デバイス
+   * @param cap_addr  MSI ケーパビリティレジスタのコンフィグレーション空間アドレス
+   * @param msi_cap  書き込む値
+   */
+  void WriteMSICapability(const Device& dev, uint8_t cap_addr,
+                          const MSICapability& msi_cap) {
+    WriteConfReg(dev, cap_addr, msi_cap.header.data);
+    WriteConfReg(dev, cap_addr + 4, msi_cap.msg_addr);
+
+    uint8_t msg_data_addr = cap_addr + 8;
+    if (msi_cap.header.bits.addr_64_capable) {
+      WriteConfReg(dev, cap_addr + 8, msi_cap.msg_upper_addr);
+      msg_data_addr = cap_addr + 12;
+    }
+
+    WriteConfReg(dev, msg_data_addr, msi_cap.msg_data);
+
+    if (msi_cap.header.bits.per_vector_mask_capable) {
+      WriteConfReg(dev, msg_data_addr + 4, msi_cap.mask_bits);
+      WriteConfReg(dev, msg_data_addr + 8, msi_cap.pending_bits);
+    }
+  }
+
+  /** @brief 指定された MSI レジスタを設定する */
+  Error ConfigureMSIRegister(const Device& dev, uint8_t cap_addr,
+                            uint32_t msg_addr, uint32_t msg_data,
+                            unsigned int num_vector_exponent) {
+    auto msi_cap = ReadMSICapability(dev, cap_addr);
+
+    if (msi_cap.header.bits.multi_msg_capable <= num_vector_exponent) {
+      msi_cap.header.bits.multi_msg_enable =
+        msi_cap.header.bits.multi_msg_capable;
+    } else {
+      msi_cap.header.bits.multi_msg_enable = num_vector_exponent;
+    }
+
+    msi_cap.header.bits.msi_enable = 1;
+    msi_cap.msg_addr = msg_addr;
+    msi_cap.msg_data = msg_data;
+
+    WriteMSICapability(dev, cap_addr, msi_cap);
+    return MAKE_ERROR(Error::kSuccess);
+  }
+
+  /** @brief 指定された MSI レジスタを設定する */
+  Error ConfigureMSIXRegister(const Device& dev, uint8_t cap_addr,
+                             uint32_t msg_addr, uint32_t msg_data,
+                             unsigned int num_vector_exponent) {
+    return MAKE_ERROR(Error::kNotImplemented);
+  }
 }
 
 namespace pci {
@@ -222,5 +294,33 @@ namespace pci {
       bar | (static_cast<uint64_t>(bar_upper) << 32),
       MAKE_ERROR(Error::kSuccess)
     };
+  }
+
+  CapabilityHeader ReadCapabilityHeader(const Device& dev, uint8_t addr) {
+    CapabilityHeader header;
+    header.data = pci::ReadConfReg(dev, addr);
+    return header;
+  }
+
+  Error ConfigureMSI(const Device& dev, uint32_t msg_addr, uint32_t msg_data,
+                     unsigned int num_vector_exponent) {
+    uint8_t cap_addr = ReadConfReg(dev, 0x34) & 0xffu;
+    uint8_t msi_cap_addr = 0, msix_cap_addr = 0;
+    while (cap_addr != 0) {
+      auto header = ReadCapabilityHeader(dev, cap_addr);
+      if (header.bits.cap_id == kCapabilityMSI) {
+        msi_cap_addr = cap_addr;
+      } else if (header.bits.cap_id == kCapabilityMSIX) {
+        msix_cap_addr = cap_addr;
+      }
+      cap_addr = header.bits.next_ptr;
+    }
+
+    if (msi_cap_addr) {
+      return ConfigureMSIRegister(dev, msi_cap_addr, msg_addr, msg_data, num_vector_exponent);
+    } else if (msix_cap_addr) {
+      return ConfigureMSIXRegister(dev, msix_cap_addr, msg_addr, msg_data, num_vector_exponent);
+    }
+    return MAKE_ERROR(Error::kNoPCIMSI);
   }
 }

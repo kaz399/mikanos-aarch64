@@ -92,6 +92,8 @@ namespace interrupt::gicv2 {
       Error enable_interrput(uint64_t i_num);
       Error disable_interrput(uint64_t i_num);
       void clear_interrupt(uint64_t i_num);
+      Error get_msi_adrs(uint32_t *adrs);
+      Error get_msi_data(uint32_t *data, uint64_t i_num);
 
       // architecture specific interfaces
 
@@ -102,6 +104,17 @@ namespace interrupt::gicv2 {
       Error get_destribution_register(const char *reg_name, uint32_t *reg_value);
       Error get_cpu_interface_register(const char *reg_name, uint32_t *reg_value);
       Error get_gicv2m_register(const char *reg_name, uint32_t *reg_value);
+
+      Error set_priority(uint64_t i_num, uint8_t priority);
+      Error get_priority(uint64_t i_num, uint8_t *priority);
+
+      Error set_target_cpu(uint64_t i_num, uint8_t cpu);
+      Error get_target_cpu(uint64_t i_num, uint8_t *cpu);
+
+      Error set_interrupt_type(uint64_t i_num, uint8_t i_type);
+
+      void enable_gicv2(void);
+      void disable_gicv2(void);
 
       // for development
 

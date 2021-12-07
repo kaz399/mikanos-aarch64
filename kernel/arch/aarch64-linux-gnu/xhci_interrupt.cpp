@@ -19,12 +19,28 @@ void IntHandlerXHCI(void *param) {
 
 
 int XHCIRegisterHandler(uint64_t IntHandlerXHCI) {
-  intctrl->register_handler(100,
+  Log(kDebug, "register XHCI interrupt hander\n");
+  intctrl->register_handler(InterruptVector::kXHCI,
       IntHandlerXHCI,
       NULL);
   return 0;
 }
 
 int XHCIEnableMsi(pci::Device* xhc_dev) {
+  Log(kDebug, "Enable MSI\n");
+  uint32_t adrs;
+  uint32_t data;
+  Error result_adrs = intctrl->get_msi_adrs(&adrs);
+  if (result_adrs.Cause() != Error::Code::kSuccess) {
+    Log(kError, "%s:%s\n", __func__, result_adrs.Name());
+    return -1;
+  }
+  Error result_data = intctrl->get_msi_data(&data, InterruptVector::kXHCI);
+  if (result_data.Cause() != Error::Code::kSuccess) {
+    Log(kError, "%s:%s\n", __func__, result_data.Name());
+    return -1;
+  }
+  Error result = pci::ConfigureMSI(*xhc_dev, adrs, data, 0);
+  Log(kDebug, "EnableMSI:result:%s\n", result.Name());
   return 0;
 }

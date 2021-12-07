@@ -1,9 +1,19 @@
 #pragma once
 
-// #ifdef AARCH64_HAVE_GICv2
 #include "gicv2.hpp"
-// #endif
 
 volatile void DisableIrq(void);
 volatile void EnableIrq(void);
+volatile void LoadVector(int el, uint64_t vector_base);
 
+class InterruptVector {
+ public:
+  enum Number {
+    kXHCI = 80,
+  };
+};
+
+
+extern "C" {
+  volatile void IRQHandler(void);
+}

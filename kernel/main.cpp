@@ -163,6 +163,10 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
   intctrl = new(intctrl_buf) InterruptController;
   intctrl->setup();
 
+  Log(kDebug, "EL1: set vector table\n");
+  LoadVector(1, VectorTable);
+
+
   XHCIRegisterHandler(reinterpret_cast<uint64_t>(IntHandlerXHCI));
   XHCIEnableMsi(xhc_dev);
 
@@ -214,7 +218,7 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
     }
   }
 
-  intctrl->get_information();
+  // intctrl->get_information();
 
   while (1) halt();
 }

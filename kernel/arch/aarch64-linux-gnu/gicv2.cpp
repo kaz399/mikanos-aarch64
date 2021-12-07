@@ -8,6 +8,7 @@
 #include "string.h"
 #include "stddef.h"
 #include "gicv2.hpp"
+#include "interrupt.hpp"
 #include "iofunc.hpp"
 #include "logger.hpp"
 #include "error.hpp"
@@ -31,7 +32,7 @@ namespace interrupt::gicv2 {
 
     uint32_t typer = 0;
     Error result = get_destribution_register("TYPER", &typer);
-    if (result) {
+    if (result.Cause() != Error::Code::kSuccess) {
       Log(kError, "Register read error: %s", result.Name());
       return;
     }
@@ -41,7 +42,7 @@ namespace interrupt::gicv2 {
     if (this->GICv2mBaseAddress != 0) {
       uint32_t msi_typer = 0;
       Error result = get_gicv2m_register("MSI_TYPER", &msi_typer);
-      if (result) {
+      if (result.Cause() != Error::Code::kSuccess) {
         Log(kError, "Register read error: %s", result.Name());
         return;
       }
@@ -52,12 +53,14 @@ namespace interrupt::gicv2 {
 
     // disable all interrupts
     for (uint64_t i = 0; i <= this->int_num; i++) {
-      if (i % 2) {
-        enable_interrput(i);
-      } else {
-        disable_interrput(i);
-      }
+      enable_interrput(i);
+      set_priority(i, static_cast<uint8_t>(i & 0xff));
+      set_interrupt_type(i, 0b11);
+      set_target_cpu(i, 1);
     }
+
+    enable_gicv2();
+    Log(kDebug, "GICv2 setup completed\n");
   }
 
   void GICv2::shutdown(void) {
@@ -76,10 +79,10 @@ namespace interrupt::gicv2 {
     }
 
     uint64_t isenabler;
-    int result = get_destribution_register_address("ISENABLER", &isenabler);
-    if (result) {
+    Error result = get_destribution_register_address("ISENABLER", &isenabler);
+    if (result.Cause() != Error::Code::kSuccess) {
       Log(kError, "%s:ISENABLER is not found (bug?)\n", __func__);
-      return MAKE_ERROR(Error::Code::kInvalidParameter);
+      return MAKE_ERROR(Error::Code::kSystemInternal);
     }
     int isenabler_ofst = i_num / 32;
     int isenabler_bit = i_num % 32;
@@ -95,8 +98,8 @@ namespace interrupt::gicv2 {
     }
 
     uint64_t icenabler;
-    int result = get_destribution_register_address("ICENABLER", &icenabler);
-    if (result) {
+    Error result = get_destribution_register_address("ICENABLER", &icenabler);
+    if (result.Cause() != Error::Code::kSuccess) {
       Log(kError, "%s:ICENABLER is not found (bug?)\n", __func__);
       return MAKE_ERROR(Error::Code::kSystemInternal);
     }
@@ -108,6 +111,43 @@ namespace interrupt::gicv2 {
   }
 
   void GICv2::clear_interrupt(uint64_t i_num) {
+  }
+
+  Error GICv2::get_msi_adrs(uint32_t *adrs) {
+    if (this->GICv2mBaseAddress == 0) {
+      return MAKE_ERROR(Error::Code::kNotSupported);
+    }
+    if (adrs == NULL) {
+      return MAKE_ERROR(Error::Code::kNull);
+    }
+    uint64_t adrs64;
+    Error result = get_gicv2m_register_address("MSI_SETSPI_S", &adrs64);
+    if (result.Cause() == Error::Code::kSuccess) {
+      if (adrs64 > UINT32_MAX) {
+        *adrs = 0;
+        return MAKE_ERROR(Error::Code::kSystemInternal);
+      } else {
+        *adrs = static_cast<uint32_t>(adrs64);
+      }
+    }
+    return result;
+
+  }
+
+  Error GICv2::get_msi_data(uint32_t *data, uint64_t i_num) {
+    if (this->GICv2mBaseAddress == 0) {
+      return MAKE_ERROR(Error::Code::kNotSupported);
+    }
+    if (data == NULL) {
+      return MAKE_ERROR(Error::Code::kNull);
+    }
+    if (i_num > UINT32_MAX) {
+      *data = 0;
+      return MAKE_ERROR(Error::Code::kSystemInternal);
+    } else {
+      *data = static_cast<uint32_t>(i_num);
+    }
+    return MAKE_ERROR(Error::Code::kSuccess);
   }
 
   // ********************************************************************************
@@ -169,7 +209,7 @@ namespace interrupt::gicv2 {
     *reg_value = 0;
     uint64_t address;
     Error result = get_destribution_register_address(reg_name, &address);
-    if (result == 0) {
+    if (result.Cause() == Error::Code::kSuccess) {
       *reg_value = io_read32(address);
     }
     return result;
@@ -183,7 +223,7 @@ namespace interrupt::gicv2 {
     *reg_value = 0;
     uint64_t address;
     Error result = get_cpu_interface_register_address(reg_name, &address);
-    if (result == 0) {
+    if (result.Cause() == Error::Code::kSuccess) {
       *reg_value = io_read32(address);
     }
     return result;
@@ -197,14 +237,115 @@ namespace interrupt::gicv2 {
     *reg_value = 0;
     uint64_t address;
     Error result = get_gicv2m_register_address(reg_name, &address);
-    if (result == 0) {
+    if (result.Cause() == Error::Code::kSuccess) {
       *reg_value = io_read32(address);
     }
     return result;
   }
 
+  Error GICv2::set_priority(uint64_t i_num, uint8_t priority) {
+    if (i_num > this->int_num) {
+      Log(kError, "interrupt number %s is not available\n", i_num);
+      return MAKE_ERROR(Error::Code::kInvalidParameter);
+    }
+    uint64_t address;
+    Error result = get_destribution_register_address("IPRIORITYR", &address);
+    if (result.Cause() == Error::Code::kSuccess) {
+      uint64_t ofst = i_num;
+      io_write8(address + ofst, priority);
+    }
+    return result;
+  }
+
+  Error GICv2::get_priority(uint64_t i_num, uint8_t *priority) {
+    if (i_num > this->int_num) {
+      Log(kError, "interrupt number %s is not available\n", i_num);
+      return MAKE_ERROR(Error::Code::kInvalidParameter);
+    }
+    if (priority == NULL) {
+      Log(kError, "%s:priority is NULL\n", __func__);
+      return MAKE_ERROR(Error::Code::kNull);
+    }
+    *priority = 0;
+    uint64_t address;
+    Error result = get_destribution_register_address("IPRIORITYR", &address);
+    if (result.Cause() == Error::Code::kSuccess) {
+      uint64_t ofst = i_num;
+      *priority = io_read8(address + ofst);
+    }
+    return result;
+  }
+
+  Error GICv2::set_target_cpu(uint64_t i_num, uint8_t cpu) {
+    if (i_num > this->int_num) {
+      Log(kError, "interrupt number %s is not available\n", i_num);
+      return MAKE_ERROR(Error::Code::kInvalidParameter);
+    }
+    uint64_t address;
+    Error result = get_destribution_register_address("ITARGETSR", &address);
+    if (result.Cause() == Error::Code::kSuccess) {
+      uint64_t ofst = i_num;
+      io_write8(address + ofst, cpu);
+    }
+    return result;
+  }
+
+  Error GICv2::get_target_cpu(uint64_t i_num, uint8_t *cpu) {
+    if (i_num > this->int_num) {
+      Log(kError, "interrupt number %s is not available\n", i_num);
+      return MAKE_ERROR(Error::Code::kInvalidParameter);
+    }
+    if (cpu == NULL) {
+      Log(kError, "%s:priority is NULL\n", __func__);
+      return MAKE_ERROR(Error::Code::kNull);
+    }
+    *cpu = 0;
+    uint64_t address;
+    Error result = get_destribution_register_address("ITARGETSR", &address);
+    if (result.Cause() == Error::Code::kSuccess) {
+      uint64_t ofst = i_num;
+      *cpu = io_read8(address + ofst);
+    }
+    return result;
+  }
+
+  void GICv2::enable_gicv2(void) {
+    uint64_t address;
+    Error result = get_destribution_register_address("CTLR", &address);
+    if (result.Cause() == Error::Code::kSuccess) {
+      io_write32(address, 0xffffffff);
+    }
+  }
+
+  void GICv2::disable_gicv2(void) {
+    uint64_t address;
+    Error result = get_destribution_register_address("CTLR", &address);
+    if (result.Cause() == Error::Code::kSuccess) {
+      io_write32(address, 0x00000000);
+    }
+  }
+
+  Error GICv2::set_interrupt_type(uint64_t i_num, uint8_t i_type) {
+    if (i_num > this->int_num) {
+      Log(kError, "interrupt number %s is not available\n", i_num);
+      return MAKE_ERROR(Error::Code::kInvalidParameter);
+    }
+    uint64_t address;
+    Error result = get_destribution_register_address("ICFGR", &address);
+    if (result.Cause() == Error::Code::kSuccess) {
+      uint64_t ofst = i_num / 16;
+      uint64_t shift = (i_num % 16) * 2;
+      uint32_t value = io_read32(address + ofst);
+      value &= ~(0b11 << shift);
+      value |= (i_type & 0b11) << shift;
+      io_write32(address + ofst, value);
+    }
+    return result;
+  }
+
+  // for development
+
   void GICv2::get_information(void) {
-    setup();
     Log(kDebug, "** GICv2:Distributor Registers %p **\n", this->DistributorBaseAddress);
     for (int i= 0; i < (sizeof(reg::GICD) / sizeof(RegisterInfo)); i++) {
       Log(kDebug, "%-10s: %08x\n", reg::GICD[i].name, io_read32(this->DistributorBaseAddress + reg::GICD[i].ofst));
