@@ -7,7 +7,7 @@
 extern usb::xhci::Controller* xhc;
 extern InterruptController* intctrl;
 
-void IntHandlerXHCI(void *param) {
+void IntHandlerXHCI(void) {
   while (xhc->PrimaryEventRing()->HasFront()) {
     if (auto err = ProcessEvent(*xhc)) {
       Log(kError, "Error while ProcessEvent: %s at %s:%d\n",
@@ -18,7 +18,7 @@ void IntHandlerXHCI(void *param) {
 }
 
 
-int XHCIRegisterHandler(uint64_t IntHandlerXHCI) {
+int XHCIRegisterHandler(interrupt::gicv2::InterruptHandler IntHandlerXHCI) {
   Log(kDebug, "register XHCI interrupt hander\n");
   intctrl->register_handler(InterruptVector::kXHCI,
       IntHandlerXHCI,

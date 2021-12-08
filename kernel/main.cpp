@@ -171,7 +171,7 @@ extern "C" void KernelMain(const FrameBufferConfig& frame_buffer_config) {
   LoadVector(1, reinterpret_cast<uint64_t>(&VectorTable));
 
 
-  XHCIRegisterHandler(reinterpret_cast<uint64_t>(IntHandlerXHCI));
+  XHCIRegisterHandler(IntHandlerXHCI);
   XHCIEnableMsi(xhc_dev);
 
   const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_dev, 0);

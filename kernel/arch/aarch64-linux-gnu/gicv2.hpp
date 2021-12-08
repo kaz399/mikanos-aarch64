@@ -11,6 +11,8 @@
 #include <string>
 #include "error.hpp"
 
+#define GICV2_MAX_INT (1024)
+
 namespace interrupt::gicv2 {
   typedef struct {
     uint8_t priority;
@@ -21,6 +23,8 @@ namespace interrupt::gicv2 {
     const char *name;
     uint64_t ofst;
   } RegisterInfo;
+
+  typedef void InterruptHandler(void);
 
   namespace reg {
     const RegisterInfo GICD[] = {
@@ -77,6 +81,7 @@ namespace interrupt::gicv2 {
       uint32_t int_num;
       uint32_t msi_base;
       uint32_t msi_num;
+      InterruptHandler *handler[GICV2_MAX_INT];
 
     public:
       GICv2(void);
@@ -86,7 +91,7 @@ namespace interrupt::gicv2 {
       void setup(void);
       void shutdown(void);
       void register_handler(uint64_t i_num,
-          uint64_t handler,
+          InterruptHandler *handler,
           interrupt::gicv2::InterruptControllerParam *param);
       void unregister_handler(uint64_t i_num);
       Error enable_interrput(uint64_t i_num);
@@ -94,6 +99,7 @@ namespace interrupt::gicv2 {
       void clear_interrupt(uint64_t i_num);
       Error get_msi_adrs(uint32_t *adrs);
       Error get_msi_data(uint32_t *data, uint64_t i_num);
+      void run_handler(uint64_t i_num);
 
       // architecture specific interfaces
 

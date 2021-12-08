@@ -21,6 +21,7 @@ extern "C" {
     uint32_t irq_number;
     intctrl->get_cpu_interface_register("IAR", &irq_number);
     Log(kDebug, "IRQ %d\n", irq_number);
+    intctrl->run_handler(irq_number);
     intctrl->set_cpu_interface_register("EOIR", irq_number);
     Log(kDebug, "IRQ end\n");
   }

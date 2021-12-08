@@ -81,7 +81,8 @@ namespace interrupt::gicv2 {
   void GICv2::shutdown(void) {
   }
 
-  void GICv2::register_handler(uint64_t i_num, uint64_t handler, InterruptControllerParam *param) {
+  void GICv2::register_handler(uint64_t i_num, InterruptHandler *handler, InterruptControllerParam *param) {
+    this->handler[i_num] = handler;
   }
 
   void GICv2::unregister_handler(uint64_t i_num) {
@@ -163,6 +164,10 @@ namespace interrupt::gicv2 {
       *data = static_cast<uint32_t>(i_num);
     }
     return MAKE_ERROR(Error::Code::kSuccess);
+  }
+
+  void GICv2::run_handler(uint64_t i_num) {
+    this->handler[i_num]();
   }
 
   // ********************************************************************************
