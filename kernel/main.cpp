@@ -30,6 +30,10 @@
 
 #include "halt.hpp"
 
+volatile int testfunc(void) {
+  volatile unsigned int x = 1;
+  return x;
+}
 
 const PixelColor kDesktopBGColor{45, 118, 237};
 const PixelColor kDesktopFGColor{255, 255, 255};

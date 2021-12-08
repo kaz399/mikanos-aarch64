@@ -4,7 +4,7 @@ MIKANOS_KERNEL_BASE := 0x40000000
 
 CLANG_SYSROOT       :=
 
-CLANG_VERSION       := -11
+CLANG_VERSION       := -13
 CPP                 := clang-cpp$(CLANG_VERSION)
 CC                  := clang$(CLANG_VERSION)
 CXX                 := clang++$(CLANG_VERSION)
@@ -26,7 +26,7 @@ ARCH_LDFLAGS        := --image-base $(MIKANOS_KERNEL_BASE) $(ARCH_LIB_PATH)
 ARCH_ASFLAGS        := --target=$(MIKANOS_ARCH_TARGET) -c
 ARCH_OBJCOPYFLAGS   := -O elf64-aarch64
 
-ARCH_OBJS           := xhci_interrupt.o gicv2.o interrupt.o iofunc.o pci.o halt.o libcxx_support.o asmfunc.o
+ARCH_OBJS           := exception_handlers.o xhci_interrupt.o gicv2.o interrupt.o iofunc.o pci.o halt.o libcxx_support.o asmfunc.o
 ARCH_LIBS           := -lc++abi -lm -lunwind -lgcc
 
 EDK2_ARCH_TARGET    := AARCH64

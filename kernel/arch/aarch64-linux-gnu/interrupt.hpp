@@ -14,6 +14,3 @@ class InterruptVector {
 };
 
 
-extern "C" {
-  volatile void IRQHandler(void);
-}

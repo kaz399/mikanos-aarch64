@@ -63,7 +63,11 @@ namespace interrupt::gicv2 {
         set_interrupt_type(i, 0b00);
       }
       set_target_cpu(i, 1);
-      enable_interrput(i);
+      if (i == InterruptVector::kXHCI) {
+        enable_interrput(i);
+      } else {
+        disable_interrput(i);
+      }
     }
 
     // GICC registers

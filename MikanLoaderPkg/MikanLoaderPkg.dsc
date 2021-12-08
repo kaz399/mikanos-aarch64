@@ -33,3 +33,4 @@
 #
 [BuildOptions]
   *_CLANG38_AARCH64_CC_FLAGS=--sysroot=/usr/aarch64-linux-gnu
+  *_CLANG38_AARCH64_DLINK2_FLAGS=-fuse-ld=lld -Wl,--defsym=PECOFF_HEADER_SIZE=0x228

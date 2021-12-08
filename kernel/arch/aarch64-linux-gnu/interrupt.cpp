@@ -33,8 +33,3 @@ volatile void LoadVector(int el, uint64_t vector_base) {
     }
   }
 
-extern "C" {
-  volatile void IRQHandler(void) {
-    Log(kDebug, "IRQ Hander\n");
-  }
-}
