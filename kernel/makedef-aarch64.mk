@@ -4,7 +4,7 @@ MIKANOS_KERNEL_BASE := 0x40000000
 
 CLANG_SYSROOT       :=
 
-CLANG_VERSION       := -13
+CLANG_VERSION       ?= -11
 CPP                 := clang-cpp$(CLANG_VERSION)
 CC                  := clang$(CLANG_VERSION)
 CXX                 := clang++$(CLANG_VERSION)
